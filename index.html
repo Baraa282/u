@@ -14,7 +14,7 @@
             --light-blue: #E6F1F8;
             --white: #FFFFFF;
             --text-dark: #2A403D;
-            --favorite-red: #FF4444; /* لون أحمر للمفضلة */
+            --favorite-red: #FF4444;
         }
 
         * {
@@ -311,18 +311,19 @@
             let showTranslation = true;
             let fontSizeLarge = false;
             let isAutoPlaying = false;
+            let isFavoritesViewActive = false; // Track if favorites view is active
 
             const reciters = [
                 { name: "Mishary Rashid Alafasy", id: "ar.alafasy" },
                 { name: "Saud Al-Shuraim", id: "ar.saoodshuraym" },
-                {name:"Ahmed alajami",id:"ar.ahmedajamy"},
+                { name: "Ahmed alajami", id: "ar.ahmedajamy" },
                 { name: "Abdurrahmaan As-Sudais", id: "ar.abdurrahmaansudais" },
                 { name: "Abdul Basit Abdul Samad", id: "ar.abdulbasitmurattal" },
                 { name: "Abo baker alhatree", id: "ar.shaatree" }
             ];
 
             const translations = [
-                {name:"تفسير الميسر" , id :"ar.muyassar"},
+                { name: "تفسير الميسر", id: "ar.muyassar" },
                 { name: "English (Sahih International)", id: "en.sahih" },
                 { name: "Kurdish", id: "ku.asan" },
                 { name: "French", id: "fr.hamidullah" },
@@ -437,11 +438,23 @@
                     }
                 });
 
-                favoritesBtn.addEventListener('click', showFavorites);
+                favoritesBtn.addEventListener('click', () => {
+                    isFavoritesViewActive = true;
+                    showFavorites();
+                });
 
-                surahSelect.addEventListener('change', loadSurah);
-                reciterSelect.addEventListener('change', loadSurah);
-                translationSelect.addEventListener('change', loadFullQuran);
+                surahSelect.addEventListener('change', () => {
+                    isFavoritesViewActive = false;
+                    loadSurah();
+                });
+                reciterSelect.addEventListener('change', () => {
+                    isFavoritesViewActive = false;
+                    loadSurah();
+                });
+                translationSelect.addEventListener('change', () => {
+                    isFavoritesViewActive = false;
+                    loadFullQuran();
+                });
                 ayahSelect.addEventListener('change', scrollToAyah);
             }
 
@@ -503,7 +516,6 @@
                     `;
                 }).join('');
 
-                // Copy button functionality
                 document.querySelectorAll('.copy-btn').forEach(btn => {
                     btn.addEventListener('click', () => {
                         navigator.clipboard.writeText(btn.parentElement.querySelector('.ayah-text').textContent);
@@ -512,12 +524,10 @@
                     });
                 });
 
-                // Play button functionality
                 document.querySelectorAll('.play-btn').forEach(btn => {
                     btn.addEventListener('click', () => toggleAudio(btn, btn.parentElement.dataset.index));
                 });
 
-                // Share button functionality
                 document.querySelectorAll('.share-btn').forEach(btn => {
                     btn.addEventListener('click', () => {
                         const surah = btn.dataset.surah;
@@ -532,12 +542,10 @@
                         };
 
                         if (navigator.share) {
-                            // Use Web Share API if available
                             navigator.share(shareData)
                                 .then(() => console.log('Shared successfully'))
                                 .catch(err => console.error('Error sharing:', err));
                         } else {
-                            // Fallback: Copy URL to clipboard
                             navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
                             btn.innerHTML = '<i class="fas fa-check"></i>';
                             setTimeout(() => btn.innerHTML = '<i class="fas fa-share-alt"></i>', 2000);
@@ -546,7 +554,6 @@
                     });
                 });
 
-                // Favorite button functionality
                 document.querySelectorAll('.favorite-btn').forEach(btn => {
                     btn.addEventListener('click', () => toggleFavorite(btn));
                 });
@@ -621,36 +628,59 @@
                 }
 
                 localStorage.setItem('favorites', JSON.stringify(favorites));
+
+                // Refresh favorites view if currently active
+                if (isFavoritesViewActive) {
+                    showFavorites();
+                }
             }
 
-            function showFavorites() {
+            async function showFavorites() {
                 const favorites = JSON.parse(localStorage.getItem('favorites')) || [];
                 if (favorites.length === 0) {
                     ayahContainer.innerHTML = '<p>No favorite ayahs saved yet.</p>';
                     return;
                 }
 
-                ayahContainer.innerHTML = favorites.map(fav => `
-                    <div class="ayah" data-surah="${fav.surah}" data-index="${fav.ayah}">
-                        <div class="ayah-text" style="font-size: ${fontSizeAyah}px">
-                            ${fav.text}
-                        </div>
-                        <button class="play-btn" data-audio="${audioAyahs[fav.ayah]?.audio || ''}">
-                            <i class="fas fa-play"></i>
-                        </button>
-                        <button class="favorite-btn active" data-surah="${fav.surah}" data-ayah="${fav.ayah}">
-                            <i class="fas fa-heart"></i>
-                        </button>
-                    </div>
-                `).join('');
+                ayahContainer.innerHTML = '<p>Loading favorites...</p>';
 
-                document.querySelectorAll('.play-btn').forEach(btn => {
-                    btn.addEventListener('click', () => toggleAudio(btn, btn.parentElement.dataset.index));
-                });
+                try {
+                    const reciter = reciterSelect.value;
+                    const favoriteAyahsHTML = await Promise.all(
+                        favorites.map(async (fav) => {
+                            const audioResponse = await fetch(`https://api.alquran.cloud/v1/surah/${fav.surah}/${reciter}`);
+                            const audioData = await audioResponse.json();
+                            const audioUrl = audioData.data.ayahs[fav.ayah]?.audio || '';
 
-                document.querySelectorAll('.favorite-btn').forEach(btn => {
-                    btn.addEventListener('click', () => toggleFavorite(btn));
-                });
+                            return `
+                                <div class="ayah" data-surah="${fav.surah}" data-index="${fav.ayah}">
+                                    <div class="ayah-text" style="font-size: ${fontSizeAyah}px">
+                                        ${fav.text}
+                                    </div>
+                                    <button class="play-btn" data-audio="${audioUrl}">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                    <button class="favorite-btn active" data-surah="${fav.surah}" data-ayah="${fav.ayah}">
+                                        <i class="fas fa-heart"></i>
+                                    </button>
+                                </div>
+                            `;
+                        })
+                    );
+
+                    ayahContainer.innerHTML = favoriteAyahsHTML.join('');
+
+                    document.querySelectorAll('.play-btn').forEach(btn => {
+                        btn.addEventListener('click', () => toggleAudio(btn, btn.parentElement.dataset.index));
+                    });
+
+                    document.querySelectorAll('.favorite-btn').forEach(btn => {
+                        btn.addEventListener('click', () => toggleFavorite(btn));
+                    });
+                } catch (error) {
+                    console.error('Error loading favorites:', error);
+                    ayahContainer.innerHTML = '<p>Error loading favorites. Please try again.</p>';
+                }
             }
         });
     </script>
