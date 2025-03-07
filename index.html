@@ -315,16 +315,20 @@
             const reciters = [
                 { name: "Mishary Rashid Alafasy", id: "ar.alafasy" },
                 { name: "Saud Al-Shuraim", id: "ar.saoodshuraym" },
+                {name:"Ahmed alajami",id:"ar.ahmedajamy"},
                 { name: "Abdurrahmaan As-Sudais", id: "ar.abdurrahmaansudais" },
                 { name: "Abdul Basit Abdul Samad", id: "ar.abdulbasitmurattal" },
-                { name: "Saad Al-Ghamdi", id: "ar.saadghamidi" }
+                { name: "Abo baker alhatree", id: "ar.shaatree" }
             ];
 
             const translations = [
+                {name:"تفسير الميسر" , id :"ar.muyassar"},
                 { name: "English (Sahih International)", id: "en.sahih" },
                 { name: "Kurdish", id: "ku.asan" },
                 { name: "French", id: "fr.hamidullah" },
                 { name: "Spanish", id: "es.cortes" },
+                { name: "Swedish", id: "sv.bernstrom" },
+                { name: "Germane", id: "de.aburida" },
                 { name: "Turkish", id: "tr.ates" }
             ];
 
@@ -489,7 +493,7 @@
                             <button class="play-btn" data-audio="${audioAyahs[index].audio}">
                                 <i class="fas fa-play"></i>
                             </button>
-                            <button class="share-btn">
+                            <button class="share-btn" data-surah="${surahSelect.value}" data-ayah="${index}">
                                 <i class="fas fa-share-alt"></i>
                             </button>
                             <button class="favorite-btn ${isFavorite ? 'active' : ''}" data-surah="${surahSelect.value}" data-ayah="${index}">
@@ -499,6 +503,7 @@
                     `;
                 }).join('');
 
+                // Copy button functionality
                 document.querySelectorAll('.copy-btn').forEach(btn => {
                     btn.addEventListener('click', () => {
                         navigator.clipboard.writeText(btn.parentElement.querySelector('.ayah-text').textContent);
@@ -507,10 +512,41 @@
                     });
                 });
 
+                // Play button functionality
                 document.querySelectorAll('.play-btn').forEach(btn => {
                     btn.addEventListener('click', () => toggleAudio(btn, btn.parentElement.dataset.index));
                 });
 
+                // Share button functionality
+                document.querySelectorAll('.share-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const surah = btn.dataset.surah;
+                        const ayah = btn.dataset.ayah;
+                        const ayahText = btn.parentElement.querySelector('.ayah-text').textContent;
+                        const translationText = btn.parentElement.querySelector('.translation').textContent;
+                        const shareUrl = `${window.location.origin}?surah=${surah}&ayah=${ayah}`;
+                        const shareData = {
+                            title: `Quran - Surah ${surahNames[surah - 1]} Ayah ${parseInt(ayah) + 1}`,
+                            text: `${ayahText}\n\nTranslation: ${translationText}`,
+                            url: shareUrl
+                        };
+
+                        if (navigator.share) {
+                            // Use Web Share API if available
+                            navigator.share(shareData)
+                                .then(() => console.log('Shared successfully'))
+                                .catch(err => console.error('Error sharing:', err));
+                        } else {
+                            // Fallback: Copy URL to clipboard
+                            navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`);
+                            btn.innerHTML = '<i class="fas fa-check"></i>';
+                            setTimeout(() => btn.innerHTML = '<i class="fas fa-share-alt"></i>', 2000);
+                            alert('Share details copied to clipboard!');
+                        }
+                    });
+                });
+
+                // Favorite button functionality
                 document.querySelectorAll('.favorite-btn').forEach(btn => {
                     btn.addEventListener('click', () => toggleFavorite(btn));
                 });
